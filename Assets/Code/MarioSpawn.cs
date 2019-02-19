@@ -10,6 +10,7 @@ public class MarioSpawn : MonoBehaviour
     Dictionary<int, Node> Graph;
     NavMeshTriangulation triangulization;
     Mesh path;
+    int count = 0;
     public Material material;
     // Start is called before the first frame update
     void Start()
@@ -21,7 +22,6 @@ public class MarioSpawn : MonoBehaviour
         ListOfMarios = new GameObject();
         ListOfMarios.transform.parent = this.transform;
         ListOfMarios.name = "ListOfMarios";
-
     }
 
     // Update is called once per frame
@@ -46,8 +46,11 @@ public class MarioSpawn : MonoBehaviour
     {
         GameObject MarioSpawned = Instantiate(Mariobros, new Vector3(35 + Random.Range(-30, 25.0f), 20, -45 + Random.Range(-30 , 20)), transform.rotation);
         MarioSpawned.transform.parent = ListOfMarios.transform;
+        MarioSpawned.name = " " + count;
         MarioMove script = MarioSpawned.GetComponent<MarioMove>();
         script._destination = this.gameObject.transform.GetChild(3).transform;
+        ++count;
+        //script.Graph = astar.Graph;
     }
 
 }

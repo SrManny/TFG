@@ -133,6 +133,22 @@ public class AStar : MonoBehaviour
         return trianglePath;
     }
 
+    public List<int> reconstructTrianglePath2(int current)
+    {
+        List<int> trianglePath = new List<int>();
+        trianglePath.Add(current);
+        //if (invertedPath.ContainsKey(invertedPath[current].id)) trianglePath.AddRange(IntersectedTriangles(current, invertedPath[current].id));
+        //Debug.Log(current + "con un coste gScore " + gScore[current] + "y el coso de fScore " + fScore[current] + " Y ADEMAS QUIERO SABER PORQUE PUNTO PASO " + Graph[current].actualPosition);
+        while (invertedPath.ContainsKey(current))
+        {
+            current = invertedPath[current].id;
+            trianglePath.Insert(0, current);
+            //if (invertedPath.ContainsKey(invertedPath[current].id)) trianglePath.InsertRange(0, IntersectedTriangles(current, invertedPath[current].id));
+            //Debug.Log(current + "con un coste gScore " + gScore[current] + "y el coso de fScore " + fScore[current] + " Y ADEMAS QUIERO SABER PORQUE PUNTO PASO " + Graph[current].actualPosition);
+        }
+        return trianglePath;
+    }
+
     /*public List<Vector3> IntersectedTriangles(int triangleA, int triangleB)
     {
         List<Neighbor> neighbors = Graph[triangleA].Neighbors;
@@ -150,8 +166,8 @@ public class AStar : MonoBehaviour
     // EL problema esta al asignar una nueva potencial position, ya que ahora mismo me estoy quedando con la que llegaria al triangulo destino, cuando en realidad para llegar a mi destino parto de otro punto.
     public float distanceBetweenNodes(int act, Neighbor nei)
     {
-        //return Vector3.Distance(Graph[act].Getbarycenter(), nei.neighbor.Getbarycenter());
-        if (nei.byVertex)
+        return Vector3.Distance(Graph[act].Getbarycenter(), nei.neighbor.Getbarycenter());
+        /*if (nei.byVertex)
         {
             //Graph[act].Neighbors.Remove(nei);
             // nei.neighbor.potencialPosition = nei.getAdjPoints()[0];
@@ -210,7 +226,7 @@ public class AStar : MonoBehaviour
             //nei.neighbor.potencialPosition = aux;
             Graph[nei.NeighborID()].potencialPosition = aux;
             return (float) Math.Sqrt(dx * dx + dy * dy);
-        }
+        }*/
     }
     public List<Vector3> trianglePath()
     {
@@ -230,7 +246,7 @@ public class AStar : MonoBehaviour
             //foreach (int k in openSet) Debug.Log(gScore[k] + " del nodo " + k);
             if (current == last)
             {
-                return reconstructTrianglePath(current);
+                return reconstructTrianglePath(current);//reconstructTrianglePath(current);
             }
             openSet.Remove(current);
             closedSet.Add(current);
@@ -256,5 +272,51 @@ public class AStar : MonoBehaviour
             ++count;
         }
         return new List<Vector3>();
+    }
+
+    public List<int> trianglePath2()
+    {
+        int start = initialNode();
+        Debug.Log(start);
+        int last = LastNode();
+        Graph[start].actualPosition = origin;
+        openSet.Add(start);
+        gScore[start] = 0;
+        //La pos
+        fScore[start] = heuristicCost(Graph[start].actualPosition);
+        int count = 0;
+        while (openSet.Count > 0)
+        {
+            int current = getTheMinimum();
+            //Debug.Log("De momento tenemos que estamos mirando " + current);
+            //foreach (int k in openSet) Debug.Log(gScore[k] + " del nodo " + k);
+            if (current == last)
+            {
+                return reconstructTrianglePath2(current);//reconstructTrianglePath(current);
+            }
+            openSet.Remove(current);
+            closedSet.Add(current);
+            List<Neighbor> neighbors = Graph[current].Neighbors;
+            foreach (Neighbor neigh in neighbors)
+            {
+                //Debug.Log("MIRANDO POR TODOS LOS VECINOS DE " + current);
+
+                int neighID = neigh.NeighborID();
+                if (closedSet.Contains(neighID)) continue;
+
+                float potencialNewScore = gScore[current] + distanceBetweenNodes(current, neigh);
+                if (!openSet.Contains(neighID)) openSet.Add(neighID);
+                else if (potencialNewScore >= gScore[neighID]) continue;
+                // This path is the best until now. Record it!
+                invertedPath[neighID] = Graph[current];
+                gScore[neighID] = potencialNewScore;
+                Graph[neighID].actualPosition = Graph[neighID].potencialPosition;
+                fScore[neighID] = gScore[neighID] + heuristicCost(Graph[neighID].actualPosition);
+                //Debug.Log("El gScore es " + gScore[neighID] + " del nodo que miramos es " + neighID);
+            }
+            //Debug.Log("FIN DE BUCLE");
+            ++count;
+        }
+        return new List<int>();
     }
 }

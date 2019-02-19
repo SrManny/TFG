@@ -9,7 +9,9 @@ public class Node
     public Vector3 actualPosition, potencialPosition;
     public List<Vector3> triangle;
     public List<Neighbor> Neighbors;
+    public Neighbor next;
     public Vector3 barycenter;
+    public bool Last;
 
     public Node(int id, List<Vector3> triangle)
     {
@@ -17,6 +19,7 @@ public class Node
         this.triangle = triangle;
         this.barycenter = (triangle[0] + triangle[1] + triangle[2])/3;
         Neighbors = new List<Neighbor>();
+        next = null;
     }
 
     public void AddNeigh(Neighbor nei)

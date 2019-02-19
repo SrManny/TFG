@@ -8,28 +8,29 @@ using UnityEngine.AI;
 public class MarioMove : MonoBehaviour
 {
     //[SerializeField]
+
     public Transform _destination;
-    public GameObject ListLines;
+    public GameObject ListLines, parent;
     public Animator _animator;
     public Material material, mat;
     NavMeshAgent _navMeshAgent;
     public NavMeshTriangulation triangulization;
-    public Dictionary<int, Node> Graph;
-    public int NumTri = 19;
+    public static Dictionary<int, Node> Graph;
+    public int NumTri = 19, indexPath = 0, pointID, prevNeighID;
     List<Vector3> trianglePath;
     AStar astar;
     Vector3 mousePos;
-
+    bool MarioHasDestination, Lastmovement, FirsTriangle, stopped;
     public Mesh path;
+    public Vector3 NextPoint;
+    int currentTriangle;
+    List<int> trianglePathID;
+    float Speed;//Don't touch this
+    float MaxSpeed;//This is the maximum speed that the object will achieve
+    float Acceleration;//How fast will object reach a maximum speed
+    float Deceleration;//How fast will object reach a speed of 0
+    GraphData script;
     // Start is called before the first frame update
-
-    static double area(int x1, int y1, int x2,
-                       int y2, int x3, int y3)
-    {
-        return System.Math.Abs((x1 * (y2 - y3) +
-                         x2 * (y3 - y1) +
-                         x3 * (y1 - y2)) / 2.0);
-    }
 
     void Start()
     {
@@ -46,6 +47,18 @@ public class MarioMove : MonoBehaviour
         triangulization = astar.triangulation;
         astar.setOrigin(transform.position);
         astar.setDestination(_destination.position);
+        MarioHasDestination = false;
+        Lastmovement = false;
+        FirsTriangle = true;
+        stopped = false;
+        NextPoint = new Vector3();
+        Speed = 10;
+        MaxSpeed = 10;
+        Acceleration = 10;
+        Deceleration = 10;
+        currentTriangle = -1;
+        //parent = GetComponentInParent<GameObject>();
+        script = GetComponentInParent<GraphData>();
         //paintPath(trianglePath, Color.red);
         //paintTriangleNeigh(26, Color.black, Color.red);
     }
@@ -59,52 +72,20 @@ public class MarioMove : MonoBehaviour
         }
     }
 
-    private Vector3[] triangleintersected()
+    private void SetDestination2()
     {
-        int[] indices = triangulization.indices;
-        Vector3[] vertices = triangulization.vertices;
-        List<Vector3> tmp = new List<Vector3>();
-        Vector2 position = new Vector2(transform.position.x, transform.position.z);
-        for (int i = 0; i < indices.Length; i +=3)
+        if (_destination != null)
         {
-            int i1 = indices[i];
-            int i2 = indices[i+1];
-            int i3 = indices[i+2];
-            tmp.Add(vertices[i1]);
-            tmp.Add(vertices[i2]);
-            tmp.Add(vertices[i3]);
-            if (intersect(tmp, position)) return tmp.ToArray();
-            else tmp.Clear();
+            Vector3 targetVector = _destination.transform.position;
+            MarioHasDestination = true;
+            astar.setOrigin(transform.position);
+            astar.setDestination(_destination.position);
+            trianglePathID = astar.trianglePath2();//script.trianglePathFromTo(transform.position, _destination.position);
+            currentTriangle = trianglePathID[indexPath];
+            //_navMeshAgent.SetDestination(targetVector);
         }
-        return tmp.ToArray();
     }
 
-    private bool intersect(List<Vector3> triangle, Vector2 position)
-    {
-        int x1 = (int) triangle[0].x;
-        int x2 = (int) triangle[1].x;
-        int x3 = (int) triangle[2].x;
-        int z1 = (int) triangle[0].z;
-        int z2 = (int) triangle[1].z;
-        int z3 = (int) triangle[2].z;
-        int x = (int) position.x;
-        int z = (int) position.y;
-
-        /* Calculate area of triangle ABC */
-        double A = area(x1, z1, x2, z2, x3, z3);
-
-        /* Calculate area of triangle PBC */
-        double A1 = area(x, z, x2, z2, x3, z3);
-
-        /* Calculate area of triangle PAC */
-        double A2 = area(x1, z1, x, z, x3, z3);
-
-        /* Calculate area of triangle PAB */
-        double A3 = area(x1, z1, x2, z2, x, z);
-
-        /* Check if sum of A1, A2 and A3 is same as A */
-        return (A == A1 + A2 + A3);
-    }
 
     public void paintPath(List<Vector3> trianglePath, Color color1)
     {
@@ -131,87 +112,126 @@ public class MarioMove : MonoBehaviour
         path.triangles = triangles.ToArray();
     }
 
-    private void paintTriangle(int index, Color color)
-    {
-        Vector3[] vertexs = triangulization.vertices;
-        Color[] colors = new Color[3];
-        int[] indices = triangulization.indices;
 
-        int lenght = indices.Length;
-        for (int i = 0; i < 1; i += 3)
-        {
-            int i1 = indices[i];
-            int i2 = indices[i + 1];
-            int i3 = indices[i + 2];
-            colors[0] = color;
-            colors[1] = color;
-            colors[2] = color;
-            Debug.Log("INICIO TRIANGULO");
-            Debug.Log(vertexs[i1]);
-            Debug.Log(vertexs[i2]);
-            Debug.Log(vertexs[i3]);
-            Debug.Log("FIN TRIANGULO");
-
-        }
-        path.vertices = Graph[index].triangle.ToArray();
-        path.colors = colors;
-        //path.uv = new Vector2[] { new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1) };
-        path.triangles = new int[] { 0, 1, 2 };
-    }
-    private void paintTriangleNeigh(int index, Color color1, Color color2)
-    {
-        path.Clear();
-        List<Vector3> vertexs = new List<Vector3>();
-        List<Color> colors = new List<Color>();
-        List<int> triangles = new List<int>();
-        int[] indices = triangulization.indices;
-
-        int lenght = indices.Length;
-        int count = 0;
-        colors.Add(color1);
-        colors.Add(color1);
-        colors.Add(color1);
-        vertexs.AddRange(Graph[index].triangle);
-        triangles.Add(count);
-        triangles.Add(count + 1);
-        triangles.Add(count + 2);
-        List<Neighbor> neighbors = Graph[index].Neighbors;
-        for (int j = 0; j < neighbors.Count; ++j)
-        {
-            count += 3;
-            colors.Add(color2);
-            colors.Add(color2);
-            colors.Add(color2);
-            vertexs.AddRange(neighbors[j].neighbor.triangle);
-            triangles.Add(count);
-            triangles.Add(count + 1);
-            triangles.Add(count + 2);
-        }
-        path.vertices = vertexs.ToArray();
-        path.colors = colors.ToArray();
-        path.triangles = triangles.ToArray();
-    }
     // Update is called once per frame
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            SetDestination();
+            //SetDestination();
+            SetDestination2();
             //Graphics.DrawMesh(path, Vector3.zero, Quaternion.identity, material, 0);
             //Debug.Log(triangulization.areas);
         }
         else if (Input.GetKeyDown(KeyCode.B))
         {
-            paintTriangleNeigh(NumTri, Color.black, Color.red);
+            //paintTriangleNeigh(NumTri, Color.black, Color.red);
         }
         else if (Input.GetKeyDown(KeyCode.V))
         {
             astar.setOrigin(this.transform.position);
-            paintPath(astar.trianglePath(), Color.red);
+            paintPath(script.trianglePath(transform.position, _destination.position), Color.red);
         }
-        _animator.SetFloat("Speed", _navMeshAgent.velocity.magnitude / 8.0f);
+        if (MarioHasDestination) GoToNextPoint();
+        _animator.SetFloat("Speed", Speed / 10.0f);
     }
 
+    private void GoToNextPoint()
+    {
+        //Debug.Log("Brillamos?");
+        
+        if (Lastmovement && Vector3.Distance(NextPoint, transform.position) < 0.01)
+        {
+            //Debug.Log("Brillamos?1");
+            MarioHasDestination = false;
+        }
+        else if (Lastmovement && Vector3.Distance(NextPoint, transform.position) >= 0.01)
+        {
+           //- Debug.Log("Brillamos?2");
+            move();
+        }
+        else if ((FirsTriangle == true || Vector3.Distance(NextPoint, transform.position) < 1) || stopped)
+        {
+           // Debug.Log("Brillamos?3");
+            AsignNewPoint();
+        }
+        else
+        {
+            //Debug.Log(NextPoint);
+            //AsignNewPoint();
+            move();
+        }
+    }
+
+    private void AsignNewPoint()
+    {
+        
+        
+        if (indexPath + 1 < trianglePathID.Count)
+        {
+
+            List<Neighbor> aux = script.Graph[currentTriangle].Neighbors;
+            int neiID = -1;
+            for (int i = 0; i < aux.Count; ++i)
+            {
+                if (aux[i].NeighborID() == script.Graph[trianglePathID[indexPath + 1]].id)
+                {
+                    neiID = i;
+                    //break;
+                }
+            }
+            bool anyFreeWayPoint = script.anyFreeWayPoint(currentTriangle, neiID);
+
+            if (anyFreeWayPoint)
+            {
+
+                if (!FirsTriangle)
+                {
+                    //Debug.Log(this.gameObject.name + " " + indexPath + " " + neiID + " " + pointID + " " + script.Graph[trianglePathID[indexPath - 1]].Neighbors.Count);
+                    script.liberateWayPoint(trianglePathID[indexPath - 1], prevNeighID, pointID);
+                }
+                else FirsTriangle = false;
+                Debug.Log(script.anyFreeWayPoint(currentTriangle, neiID));
+                NextPoint = script.getClosestWayPoint(currentTriangle, transform.position, out pointID, neiID, this.gameObject.name);
+                prevNeighID = neiID;
+                //Debug.Log(pointID + " a ver que es");
+                ++indexPath;
+                currentTriangle = trianglePathID[indexPath];
+                stopped = false;
+            }
+            else
+            {
+                //Debug.Log("TE JURO QUE TE MATO");
+                stopped = true;
+            }
+        }
+        else
+        {
+            script.liberateWayPoint(trianglePathID[indexPath - 1], prevNeighID, pointID);
+            Lastmovement = true;
+            NextPoint = _destination.transform.position;
+        }
+    }
+
+    private void move()
+    {
+        float step = Speed * Time.deltaTime;
+        transform.position = Vector3.MoveTowards(transform.position, NextPoint, step);
+        /*if ((Input.GetKey("left")) && (Speed < MaxSpeed))
+            Speed = Speed - Acceleration  Time.deltaTime;
+        else if ((Input.GetKey("right")) && (Speed > -MaxSpeed))
+            Speed = Speed + Acceleration  Time.deltaTime;
+        else
+        {
+            if (Speed > Deceleration  Time.deltaTime)
+                Speed = Speed - Deceleration  Time.deltaTime;
+            else if (Speed < -Deceleration  Time.deltaTime)
+                Speed = Speed + Deceleration  Time.deltaTime;
+            else
+                Speed = 0;
+            }
+            transform.position.x = transform.position.x + Speed* Time.deltaTime;*/
+    }
     void DrawLine(Vector3 start, Vector3 end, Color color)
     {
         GameObject myLine = new GameObject();
